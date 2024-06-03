@@ -29,24 +29,27 @@ int main(int argc, char *argv[]) {
 
   int sockfd;  
   struct hostent *he;
-  struct sockaddr_in cliente; // informacion de la direccion de destino 
+  // informacion de la direccion de destino 
+  struct sockaddr_in conexion_servidor;
 
-  if ((he=gethostbyname(argv[1])) == NULL) {  // obtener informacion de host servidor 
+  // obtener informacion de host servidor 
+  if ((he=gethostbyname(argv[1])) == NULL) { 
    perror("gethostbyname");
    exit(1);
   }
 
+  // creamos el socket
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
    perror("socket");
    exit(1);
   }
 
-  cliente.sin_family = AF_INET; 
-  cliente.sin_port = htons( atoi(argv[2]) ); 
-  cliente.sin_addr = *((struct in_addr *)he->h_addr);
-  memset(&(cliente.sin_zero), '\0',8);  // poner a cero el resto de la estructura 
+  conexion_servidor.sin_family = AF_INET; 
+  conexion_servidor.sin_port = htons( atoi(argv[2]) ); 
+  conexion_servidor.sin_addr = *((struct in_addr *)he->h_addr);
+  memset(&(conexion_servidor.sin_zero), '\0',8);  // poner a cero el resto de la estructura 
 
-  if (connect(sockfd, (struct sockaddr *)&cliente, sizeof(struct sockaddr)) == -1) {
+  if (connect(sockfd, (struct sockaddr *)&conexion_servidor, sizeof(struct sockaddr)) == -1) {
     perror("connect");
     exit(1);
   }
