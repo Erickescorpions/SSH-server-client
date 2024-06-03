@@ -53,19 +53,20 @@ int main(int argc, char *argv[]) {
   char* comando = NULL;
 
   do {
+    // Limpiamos el buffer
+    memset(buf, 0, sizeof(buf));
+
     fputs("Servidor $ ", stdout);
     comando = read_command();
 
     size_t len_comando = strlen(comando) - 1;
-
-    // printf("Comando: %s\n", comando);
-    // printf("El tamaño del comando es %ld\n", len_comando);
 
     // Se envia el comando al servidor
     if(send(sockfd, comando, len_comando, 0) == -1) {
       perror("send()");
       exit(1);
     }
+
     
     if ((numbytes = recv(sockfd, buf, MAXDATASIZE_RESP-1, 0)) == -1) {
       perror("recv");
@@ -73,13 +74,9 @@ int main(int argc, char *argv[]) {
     }
 
     // Si el mensaje recibido es OK, el comando no tiene salida
-    if(!(strcmp(buf, "OK") == 0)) {
+    if(strcmp(buf, "OK") != 0) {
       printf("\n%s\n",buf);
     }
-
-    // Limpiamos el buffer
-    memset(buf, 0, sizeof(buf));
-
   } while(strcmp(comando, "exit\n") != 0);
 
   free(comando);
