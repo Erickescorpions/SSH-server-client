@@ -13,10 +13,10 @@
 #include <stdbool.h>
 #include "../include/LinkedList.h"
 
-#define LENGTH 20000 // Definición del tamaño del buffer
-#define ARCHIVO_AUXILIAR "tmp.txt"
+#define BUFFER_SIZE 20000 // Definición del tamaño del buffer
 
 char **parse_command(char *string, int *command_list_size);
+int execute(char **command_list, char *buf_respuesta, size_t buf_size);
 void print_string_array(char **array, int size)
 {
   printf("Tam del arreglo es %d\n", size);
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
   int numbytes;
   char buf_peticion[100];     // Buffer para recibir datos
-  char buf_respuesta[LENGTH]; // Buffer para enviar datos
+  char buf_respuesta[BUFFER_SIZE]; // Buffer para enviar datos
 
   // Estructuras para almacenar información del servidor y del cliente
   struct sockaddr_in servidor; // Información sobre la dirección del servidor
@@ -114,7 +114,6 @@ int main(int argc, char *argv[])
     printf("Nueva conexion cliente desde %s\n\n", inet_ntoa(cliente.sin_addr));
 
     FILE *fs;
-    char *fs_name = ARCHIVO_AUXILIAR;
 
     do
     {
@@ -124,10 +123,6 @@ int main(int argc, char *argv[])
       // limpiamos el buffer de respuesta
       memset(buf_respuesta, 0, sizeof(buf_respuesta));
 
-      // limpiamos el archivo
-      fs = fopen(fs_name, "w");
-      fclose(fs);
-
       // Recibir datos del cliente
       if ((numbytes = recv(cliente_fd, buf_peticion, sizeof(buf_peticion) - 1, 0)) == -1)
       {
@@ -135,7 +130,6 @@ int main(int argc, char *argv[])
         exit(1);
       }
 
-      int num_bytes_leidos = 0;
       printf("El comando recibido es: %s\n", buf_peticion);
 
       if (strcmp(buf_peticion, "exit") == 0)
@@ -162,61 +156,22 @@ int main(int argc, char *argv[])
       char **command_list = parse_command(buf_peticion, &command_list_size);
       // print_string_array(command_list, command_list_size);
 
-      int fd[2];
-      // creamos la pipe
-      if (pipe(fd) < 0)
+      int num_bytes_leidos = execute(command_list, buf_respuesta, BUFFER_SIZE);
+
+      // Aqui mandamos el mensaje de confirmacion cuando el comando no regresa nada por si solo (ej. mkdir)
+      if (num_bytes_leidos == 0)
       {
-        // error al ejecutar el pipe
-        perror("pipe");
-        exit(1);
-      }
-
-      // creamos un proceso hijo
-      int child_process = fork();
-
-      switch (child_process)
-      {
-      case 0: // Proceso hijo
-        // El proceso hijo va a ejecutar el comando
-        // cerramos el fd de lectura del pipe
-        close(fd[0]);
-        // cambiamos la salida del comando
-        dup2(fd[1], STDOUT_FILENO);
-        // cerramos el pipe de escritura
-        close(fd[1]);
-        // ejecutamos el comando
-        execvp(command_list[0], command_list);
-        // terminamos la ejecucion del proceso hijo
-        exit(0);
-        break;
-      case -1: // Ocurrio un error
-        perror("fork");
-        exit(1);
-        break;
-      default: // Proceso padre
-        // el proceso hijo va a esperar la respuesta
-        // cerramos el fd de escritura
-        close(fd[1]);
-        // esperamos la respuesta
-        num_bytes_leidos = read(fd[0], buf_respuesta, sizeof(buf_respuesta));
-
-        // Aqui mandamos el mensaje de confirmacion cuando el comando no regresa nada por si solo (ej. mkdir)
-        if (num_bytes_leidos == 0)
+        char *mensaje_exito = "OK";
+        if (send(cliente_fd, mensaje_exito, strlen(mensaje_exito), 0) < 0)
         {
-          char *mensaje_exito = "OK";
-          if (send(cliente_fd, mensaje_exito, strlen(mensaje_exito), 0) < 0)
-          {
-            printf("ERROR: al enviar el mensaje de éxito al cliente\n");
-            exit(1);
-          }
-        }
-        else if (send(cliente_fd, buf_respuesta, num_bytes_leidos, 0) < 0)
-        {
-          printf("ERROR: al enviar la salida del comando al cliente\n");
+          printf("ERROR: al enviar el mensaje de éxito al cliente\n");
           exit(1);
         }
-
-        break;
+      }
+      else if (send(cliente_fd, buf_respuesta, num_bytes_leidos, 0) < 0)
+      {
+        printf("ERROR: al enviar la salida del comando al cliente\n");
+        exit(1);
       }
 
       printf("Enviando respuesta el cliente\n");
@@ -261,4 +216,52 @@ char **parse_command(char *string, int *command_list_size)
   destroy_LinkedList(ll);
 
   return command_list;
+}
+
+int execute(char **command_list, char *buf_respuesta, size_t buf_size)
+{
+  int fd[2];
+  int num_bytes_leidos = 0;
+
+  // creamos la pipe
+  if (pipe(fd) < 0)
+  {
+    // error al ejecutar el pipe
+    perror("pipe");
+    exit(1);
+  }
+
+  // creamos un proceso hijo
+  int child_process = fork();
+
+  switch (child_process)
+  {
+  case 0: // Proceso hijo
+    // El proceso hijo va a ejecutar el comando
+    // cerramos el fd de lectura del pipe
+    close(fd[0]);
+    // cambiamos la salida del comando
+    dup2(fd[1], STDOUT_FILENO);
+    // cerramos el pipe de escritura
+    close(fd[1]);
+    // ejecutamos el comando
+    execvp(command_list[0], command_list);
+    // terminamos la ejecucion del proceso hijo
+    exit(0);
+    break;
+  case -1: // Ocurrio un error
+    perror("fork");
+    exit(1);
+    break;
+  default: // Proceso padre
+    // el proceso hijo va a esperar la respuesta
+    // cerramos el fd de escritura
+    close(fd[1]);
+    // esperamos la respuesta
+    num_bytes_leidos = read(fd[0], buf_respuesta, buf_size - 1);
+
+    break;
+  }
+
+  return num_bytes_leidos;
 }
