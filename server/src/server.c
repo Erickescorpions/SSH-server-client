@@ -88,17 +88,29 @@ int main(int argc, char *argv[]) {
 
   do {
 
-    puts("Esperando una nueva conexion...");
+    puts("\nEsperando una nueva conexion...");
     // Aceptar una conexión entrante
     if ((cliente_fd = accept(server_fd, (struct sockaddr *)&cliente, &sin_size_cliente)) == -1)
     {
       perror("accept");
       exit(1);
     }
-    printf("Nueva conexion cliente desde %s\n", inet_ntoa(cliente.sin_addr));
+    printf("Nueva conexion cliente desde %s\n\n", inet_ntoa(cliente.sin_addr));
 
+    FILE* fs;
+    char *fs_name = ARCHIVO_AUXILIAR;
 
     do {
+
+      // limpiamos el buffer de la peticion
+      memset(buf_peticion, 0, sizeof(buf_peticion));
+
+      // limpiamos el buffer de respuesta 
+      memset(buf_respuesta, 0, sizeof(buf_respuesta));
+
+      // limpiamos el archivo
+      fs = fopen(fs_name, "w");
+      fclose(fs);
 
       // Recibir datos del cliente
       if ((numbytes = recv(cliente_fd, buf_peticion, sizeof(buf_peticion) - 1, 0)) == -1)
@@ -111,16 +123,16 @@ int main(int argc, char *argv[]) {
 
       if(strcmp(buf_peticion, "exit") == 0) {
         // Mandamos mensaje de despedida al usuario
-        char* mensaje_despedida = "Hasta luego :)";
+        char* mensaje_despedida = "Hasta luego 🤠";
         size_t tam_mensaje_despedida = strlen(mensaje_despedida);
 
         if (send(cliente_fd, mensaje_despedida, tam_mensaje_despedida, 0) < 0)
         {
-          printf("ERROR: al enviar el mensaje de despedida al cliente");
+          printf("ERROR: al enviar el mensaje de despedida al cliente\n");
           exit(1);
         }
 
-        printf("Cerrando conexion con el cliente");
+        printf("Cerrando conexion con el cliente...\n");
         close(cliente_fd);
 
         break;
@@ -133,18 +145,12 @@ int main(int argc, char *argv[]) {
       buf_peticion[numbytes + 2] = ' ';
       strcat(buf_peticion, ARCHIVO_AUXILIAR);
 
-      printf("El comando recibido es: %s\n", buf_peticion);
-
       // TODO: Cambiar la forma de ejecutar el comando
       // Ejecutar el comando recibido
       system(buf_peticion);
-
-      // Leer el archivo a.txt
-      char *fs_name = ARCHIVO_AUXILIAR;
-      printf("[Server] Enviando salida al Cliente...\n");
-
+    
       // TODO: Cambiar la forma de leer la respuesta del comando
-      FILE *fs = fopen(fs_name, "r");
+      fs = fopen(fs_name, "r");
       if (fs == NULL)
       {
         printf("ERROR: File %s not found on server.\n", fs_name);
@@ -167,6 +173,7 @@ int main(int argc, char *argv[]) {
         }
         bzero(buf_respuesta, LENGTH);
       }
+      fclose(fs);
 
       //Aqui mandamos el mensaje de confirmacion cuando el comando no regresa nada por si solo (ej. mkdir)
       if (sin_respuesta) {
@@ -178,11 +185,6 @@ int main(int argc, char *argv[]) {
       }
       
       printf("Enviando respuesta el cliente\n");
-
-      // limpiamos el buffer de la peticion
-      memset(buf_peticion, 0, sizeof(buf_peticion));
-
-      fclose(fs);
     } while(true);
   } while(true);
 
@@ -193,37 +195,3 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
-
-// char** parse_command(char* string, int* command_list_size) {
-//   char* buffer;
-//   char* delimiter = " \t\r\n\a";
-
-//   buffer = strtok(string, delimiter);
-
-//   // creamos un arreglo de palabras
-//   char** palabras = malloc(20 * sizeof(char*));
-
-//   int conteo_palabras = 0;
-//   // separamos por palabras el comando que se ingreso
-//   do {
-//     palabras[conteo_palabras] = buffer;
-//     buffer = strtok(NULL, delimiter);
-//     conteo_palabras++;
-//   }  while(buffer);
-
-//   *command_list_size = conteo_palabras + 1;
-
-//   return palabras;
-// }
-
-// int execute(char** command_list) {
-//   pid_t children_id = fork();
-  
-//   if(children_id == 0) {
-//     execvp (command_list[0], command_list);
-//     perror("execvp");
-//     return 1;
-//   } else {
-//     return children_id;
-//   }
-// }
