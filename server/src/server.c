@@ -1,31 +1,22 @@
-#include <stdio.h>      // Librería estándar de E/S
-#include <stdlib.h>     // Librería estándar de utilidades
-#include <unistd.h>     // Definiciones de la API del sistema POSIX
-#include <errno.h>      // Definiciones de códigos de error
-#include <string.h>     // Funciones de manejo de cadenas
-#include <sys/types.h>  // Definiciones de tipos de datos básicos del sistema
-#include <sys/socket.h> // Definiciones de la API de sockets
-#include <netinet/in.h> // Definiciones para sockets de Internet
-#include <arpa/inet.h>  // Definiciones para operaciones de Internet
-#include <sys/wait.h>   // Definiciones para manejar procesos hijos
-#include <signal.h>     // Definiciones para señales
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h> 
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
 
 #include <stdbool.h>
 #include "../include/LinkedList.h"
 
-#define BUFFER_SIZE 20000 // Definición del tamaño del buffer
+#define BUFFER_SIZE 20000
 
 char **parse_command(char *string, int *command_list_size);
 int execute(char **command_list, char *buf_respuesta, size_t buf_size);
-void print_string_array(char **array, int size)
-{
-  printf("Tam del arreglo es %d\n", size);
-
-  for (int i = 0; i < size; i++)
-  {
-    printf("El valor en el indice %d es: %s\n", i, array[i]);
-  }
-}
+void print_string_array(char **array, int size);
 
 int main(int argc, char *argv[])
 {
@@ -37,26 +28,24 @@ int main(int argc, char *argv[])
   }
 
   int numbytes;
-  char buf_peticion[100];     // Buffer para recibir datos
-  char buf_respuesta[BUFFER_SIZE]; // Buffer para enviar datos
+  char buf_peticion[100];
+  char buf_respuesta[BUFFER_SIZE];
 
-  // Estructuras para almacenar información del servidor y del cliente
-  struct sockaddr_in servidor; // Información sobre la dirección del servidor
-  struct sockaddr_in cliente;  // Información sobre la dirección del cliente
+  // variables para almacenar información del servidor y del cliente
+  struct sockaddr_in servidor;
+  struct sockaddr_in cliente; 
 
-  int server_fd, cliente_fd; // Descriptores de archivo para el servidor y el cliente
+  int server_fd, cliente_fd;
+  int sin_size_servidor;
+  int sin_size_cliente;  
 
-  int sin_size_servidor; // Tamaño de la estructura del servidor
-  int sin_size_cliente;  // Tamaño de la estructura del cliente
-
-  // Crear un socket
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
   {
     perror("socket");
     exit(1);
   }
 
-  // Configurar opciones del socket para reutilizar la dirección
+  // opciones del socket para reutilizar la dirección
   if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1)
   {
     perror("Server-setsockopt() error!");
@@ -65,47 +54,34 @@ int main(int argc, char *argv[])
 
   printf("Direccion IP: %s\n", inet_ntoa(servidor.sin_addr));
 
-  // Configurar la estructura del servidor
   servidor.sin_family = AF_INET;            // Familia de direcciones
   servidor.sin_port = htons(atoi(argv[1])); // Puerto, convertido a orden de bytes de red
   servidor.sin_addr.s_addr = INADDR_ANY;    // Dirección IP del servidor
   memset(&(servidor.sin_zero), '\0', 8);    // Rellenar con ceros el resto de la estructura
 
-  // Tamaño de la estructura del servidor
   sin_size_servidor = sizeof(servidor);
 
-  // Asociar el socket con la dirección y puerto especificados
+  // asociamos el socket con la dirección y puerto especificados
   if (bind(server_fd, (struct sockaddr *)&servidor, sin_size_servidor) == -1)
   {
     perror("bind");
     exit(1);
   }
 
-  // Poner el socket en modo de escucha
+  // ponemos al servidor a escuchar peticiones
   if (listen(server_fd, 1) == -1)
   {
     perror("listen");
     exit(1);
   }
 
-  // Tamaño de la estructura del cliente
   sin_size_cliente = sizeof(cliente);
-
-  FILE *fptr;
-  // Creamos el archivo temporal donde vamos a guardar la salida del comando
-  if ((fptr = fopen(ARCHIVO_AUXILIAR, "w")) == NULL)
-  {
-    perror("Error al crear archivo temporal");
-    exit(1);
-  }
-  // Inmediatamente lo cerramos
-  fclose(fptr);
 
   do
   {
-
     puts("\nEsperando una nueva conexion...");
-    // Aceptar una conexión entrante
+
+    // esperamos a una nueva conexion
     if ((cliente_fd = accept(server_fd, (struct sockaddr *)&cliente, &sin_size_cliente)) == -1)
     {
       perror("accept");
@@ -123,7 +99,7 @@ int main(int argc, char *argv[])
       // limpiamos el buffer de respuesta
       memset(buf_respuesta, 0, sizeof(buf_respuesta));
 
-      // Recibir datos del cliente
+      // leemos el mensaje del cliente
       if ((numbytes = recv(cliente_fd, buf_peticion, sizeof(buf_peticion) - 1, 0)) == -1)
       {
         perror("recv");
@@ -158,6 +134,8 @@ int main(int argc, char *argv[])
 
       int num_bytes_leidos = execute(command_list, buf_respuesta, BUFFER_SIZE);
 
+      printf("Comando ejecutado:\n%s", buf_respuesta);
+      printf("Enviando respuesta el cliente...\n\n");
       // Aqui mandamos el mensaje de confirmacion cuando el comando no regresa nada por si solo (ej. mkdir)
       if (num_bytes_leidos == 0)
       {
@@ -173,8 +151,6 @@ int main(int argc, char *argv[])
         printf("ERROR: al enviar la salida del comando al cliente\n");
         exit(1);
       }
-
-      printf("Enviando respuesta el cliente\n");
     } while (true);
   } while (true);
 
@@ -245,9 +221,10 @@ int execute(char **command_list, char *buf_respuesta, size_t buf_size)
     // cerramos el pipe de escritura
     close(fd[1]);
     // ejecutamos el comando
-    execvp(command_list[0], command_list);
-    // terminamos la ejecucion del proceso hijo
-    exit(0);
+    if (execvp(command_list[0], command_list) < 0) {
+        perror("execvp");
+        exit(1);
+    }
     break;
   case -1: // Ocurrio un error
     perror("fork");
@@ -257,11 +234,25 @@ int execute(char **command_list, char *buf_respuesta, size_t buf_size)
     // el proceso hijo va a esperar la respuesta
     // cerramos el fd de escritura
     close(fd[1]);
+    // esperamos a que el proceso hijo termine
+    waitpid(child_process, NULL, 0);
     // esperamos la respuesta
     num_bytes_leidos = read(fd[0], buf_respuesta, buf_size - 1);
 
+    // cerramos el fd de lectura del pipe
+    close(fd[0]);
     break;
   }
 
   return num_bytes_leidos;
+}
+
+void print_string_array(char **array, int size)
+{
+  printf("Tam del arreglo es %d\n", size);
+
+  for (int i = 0; i < size; i++)
+  {
+    printf("El valor en el indice %d es: %s\n", i, array[i]);
+  }
 }
