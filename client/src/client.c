@@ -17,6 +17,12 @@
 char* read_command();
 
 int main(int argc, char *argv[]) {
+
+  if (argc != 3) {
+    fprintf(stderr, "Uso del programa: %s <hostname> <puerto>\n", argv[0]);
+    exit(1);
+  }
+
   // Estos 2 son para la respuesta
   int numbytes;
   char buf[MAXDATASIZE_RESP];
@@ -24,11 +30,6 @@ int main(int argc, char *argv[]) {
   int sockfd;  
   struct hostent *he;
   struct sockaddr_in cliente; // informacion de la direccion de destino 
-
-  if (argc != 3) {
-    fprintf(stderr,"usage: client hostname puerto\n");
-    exit(1);
-  }
 
   if ((he=gethostbyname(argv[1])) == NULL) {  // obtener informacion de host servidor 
    perror("gethostbyname");
