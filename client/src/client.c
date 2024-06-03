@@ -72,7 +72,13 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    printf("\n%s\n",buf);
+    // Si el mensaje recibido es OK, el comando no tiene salida
+    if(!(strcmp(buf, "OK") == 0)) {
+      printf("\n%s\n",buf);
+    }
+
+    // Limpiamos el buffer
+    memset(buf, 0, sizeof(buf));
 
   } while(strcmp(comando, "exit\n") != 0);
 
@@ -83,13 +89,13 @@ int main(int argc, char *argv[]) {
 }
 
 char* read_command() {
-    char *input = NULL;
-    size_t buffer_size = 0;
+  char *input = NULL;
+  size_t buffer_size = 0;
 
-    if (getline(&input, &buffer_size, stdin) == -1){
-        perror("read command");
-        exit(1);
-    }
+  if (getline(&input, &buffer_size, stdin) == -1){
+    perror("read command");
+    exit(1);
+  }
 
-    return input;
+  return input;
 }

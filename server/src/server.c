@@ -152,8 +152,9 @@ int main(int argc, char *argv[]) {
       }
 
       // Enviar el contenido del archivo al cliente
-      // TODO: si el comando no da ninguna salida, avisarle al usuario que el comando se realizo exitosamente
+      
       bzero(buf_respuesta, LENGTH); 
+      
       int fs_block_sz;
       int sin_respuesta = 1;
       while ((fs_block_sz = fread(buf_respuesta, sizeof(char), LENGTH, fs)) > 0)
@@ -167,16 +168,16 @@ int main(int argc, char *argv[]) {
         bzero(buf_respuesta, LENGTH);
       }
 
-  //Aqui mandamos el mensaje de confirmacion cuando el comando no regresa nada por si solo (ej. mkdir)
+      //Aqui mandamos el mensaje de confirmacion cuando el comando no regresa nada por si solo (ej. mkdir)
       if (sin_respuesta) {
-                char* mensaje_exito = "Comando ejecutado exitosamente, pero no hay salida para mostrar.";
-                if (send(cliente_fd, mensaje_exito, strlen(mensaje_exito), 0) < 0) {
-                    printf("ERROR: al enviar el mensaje de éxito al cliente\n");
-                    exit(1);
-                }
-            }
+        char* mensaje_exito = "OK";
+        if (send(cliente_fd, mensaje_exito, strlen(mensaje_exito), 0) < 0) {
+          printf("ERROR: al enviar el mensaje de éxito al cliente\n");
+          exit(1);
+        }
+      }
       
-      printf("Ok sent to client!\n");
+      printf("Enviando respuesta el cliente\n");
 
       // limpiamos el buffer de la peticion
       memset(buf_peticion, 0, sizeof(buf_peticion));
