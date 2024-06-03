@@ -4,7 +4,7 @@
 ## Instrucciones de compilacion
 
 ```
-gcc server/src/server.c -o server.out
+gcc server/src/server.c server/src/LinkedList.c -o server.out
 ./server.out <puerto>
 ```
 
